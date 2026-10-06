@@ -1,0 +1,76 @@
+generator client { provider = "prisma-client" output = "../generated" }
+datasource db { provider = "postgresql" }
+
+enum Role { USER ADMIN }
+enum JobStatus { QUEUED PROCESSING COMPLETED FAILED CANCELED }
+enum SubscriptionStatus { ACTIVE PAST_DUE CANCELED EXPIRED }
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String
+  name String?
+  role Role @default(USER)
+  suspended Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  subscription Subscription?
+  jobs VideoJob[]
+}
+model Plan {
+  id String @id @default(cuid())
+  name String @unique
+  priceCents Int
+  interval String @default("month")
+  maxFileBytes BigInt
+  dailyJobLimit Int
+  maxWidth Int
+  maxHeight Int
+  maxFps Int
+  priority Int @default(10)
+  active Boolean @default(true)
+  subscriptions Subscription[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Subscription {
+  id String @id @default(cuid())
+  userId String @unique
+  planId String
+  status SubscriptionStatus @default(ACTIVE)
+  provider String?
+  providerCustomerId String?
+  providerSubscriptionId String?
+  currentPeriodEnd DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan Plan @relation(fields: [planId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model VideoJob {
+  id String @id @default(cuid())
+  userId String
+  originalName String
+  inputKey String
+  outputKey String?
+  status JobStatus @default(QUEUED)
+  progress Int @default(0)
+  error String?
+  inputBytes BigInt
+  outputBytes BigInt?
+  durationMs Int?
+  createdAt DateTime @default(now())
+  startedAt DateTime?
+  completedAt DateTime?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}
+model UsageDay {
+  id String @id @default(cuid())
+  userId String
+  day DateTime
+  jobs Int @default(0)
+  bytesIn BigInt @default(0)
+  @@unique([userId, day])
+}
